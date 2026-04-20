@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  brandId      String
+  brand        Brand    @relation(fields: [brandId], references: [id])
+  modelAccess  UserModelAccess[]
+  tryOnJobs    TryOnJob[]
+  createdAt    DateTime @default(now())
+}
+
+model Brand {
+  id               String         @id @default(cuid())
+  name             String         @unique
+  slug             String         @unique
+  promptEndpoint   String
+  users            User[]
+  models           BrandModel[]
+  styleAssets      StyleAsset[]
+}
+
+model AIModel {
+  id           String   @id @default(cuid())
+  name         String
+  imageUrl     String
+  thumbnailUrl String
+  brandAccess  BrandModel[]
+  userAccess   UserModelAccess[]
+  tryOnJobs    TryOnJob[]
+  createdAt    DateTime @default(now())
+}
+
+model BrandModel {
+  brandId  String
+  modelId  String
+  brand    Brand   @relation(fields: [brandId], references: [id])
+  model    AIModel @relation(fields: [modelId], references: [id])
+  @@id([brandId, modelId])
+}
+
+model UserModelAccess {
+  userId  String
+  modelId String
+  user    User    @relation(fields: [userId], references: [id])
+  model   AIModel @relation(fields: [modelId], references: [id])
+  @@id([userId, modelId])
+}
+
+model StyleAsset {
+  id        String          @id @default(cuid())
+  brandId   String
+  brand     Brand           @relation(fields: [brandId], references: [id])
+  type      StyleAssetType
+  imageUrl  String
+  label     String
+  createdAt DateTime        @default(now())
+}
+
+enum StyleAssetType {
+  LIGHTING
+  POSE
+  BACKGROUND
+  STYLE
+}
+
+model TryOnJob {
+  id                String      @id @default(cuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+  modelId           String
+  aiModel           AIModel     @relation(fields: [modelId], references: [id])
+  topGarmentUrls    String[]
+  bottomGarmentUrls String[]
+  productDetails    String
+  generatedPrompt   Json
+  resultUrl         String?
+  status            JobStatus   @default(PENDING)
+  errorMessage      String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+enum JobStatus {
+  PENDING
+  GENERATING_PROMPT
+  PROCESSING
+  COMPLETED
+  FAILED
+}
