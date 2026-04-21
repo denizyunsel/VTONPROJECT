@@ -18,7 +18,14 @@ interface Props {
   submitting: boolean;
 }
 
-const ASSET_TYPES = ["LIGHTING", "POSE", "BACKGROUND", "STYLE"] as const;
+const ASSET_TYPES = ["LIGHTING", "POSE", "BACKGROUND", "COMPOSITION"] as const;
+
+const TYPE_LABELS: Record<string, string> = {
+  LIGHTING: "Lighting",
+  POSE: "Pose",
+  BACKGROUND: "Background",
+  COMPOSITION: "Composition",
+};
 
 function StyleAssetSection({
   type,
@@ -41,32 +48,47 @@ function StyleAssetSection({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700">
-        {type.charAt(0) + type.slice(1).toLowerCase()}
-      </p>
+      <p className="text-sm font-medium text-gray-700">{TYPE_LABELS[type]}</p>
       <div className="flex gap-2 flex-wrap">
-        {assets.map((asset) => (
-          <button
-            key={asset.id}
-            onClick={() => onSelect(selected?.id === asset.id ? null : asset)}
-            className={`relative rounded overflow-hidden border-2 transition-all ${
-              selected?.id === asset.id
-                ? "border-blue-500 ring-2 ring-blue-300"
-                : "border-gray-200 hover:border-gray-400"
-            }`}
-            title={asset.label}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={asset.imageUrl}
-              alt={asset.label}
-              className="w-16 h-16 object-cover"
-            />
-            <p className="text-xs text-center py-0.5 bg-white truncate w-16">
-              {asset.label}
-            </p>
-          </button>
-        ))}
+        {assets.map((asset) => {
+          const isSelected = selected?.id === asset.id;
+          return (
+            <button
+              key={asset.id}
+              onClick={() => onSelect(isSelected ? null : asset)}
+              className={`relative rounded overflow-hidden border-2 transition-all ${
+                isSelected
+                  ? "border-blue-500 ring-2 ring-blue-300"
+                  : "border-gray-200 hover:border-gray-400"
+              }`}
+              title={asset.label}
+            >
+              {asset.imageUrl && asset.imageUrl !== "" ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={asset.imageUrl}
+                    alt={asset.label}
+                    className="w-20 h-20 object-cover"
+                  />
+                  <p className="text-xs text-center py-1 bg-white truncate w-20 text-gray-600">
+                    {asset.label}
+                  </p>
+                </>
+              ) : (
+                <div className={`w-24 px-3 py-3 flex items-center justify-center min-h-[3rem] transition-colors ${
+                  isSelected ? "bg-blue-50" : "bg-gray-50"
+                }`}>
+                  <span className={`text-xs text-center leading-snug font-medium ${
+                    isSelected ? "text-blue-700" : "text-gray-700"
+                  }`}>
+                    {asset.label}
+                  </span>
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -106,10 +128,7 @@ export default function Step3Details({
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           Back
         </Button>
-        <Button
-          onClick={onSubmit}
-          disabled={submitting}
-        >
+        <Button onClick={onSubmit} disabled={submitting}>
           {submitting ? "Generating..." : "Generate Try-On"}
         </Button>
       </div>

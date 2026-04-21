@@ -161,11 +161,11 @@ export default function TryOnPage() {
         {step === 3 && (
           <Step3Details
             selectedStyleAssets={state.selectedStyleAssets}
-            onStyleAssetChange={(type, asset) =>
+            onStyleAssetChange={(type, assets) =>
               update({
                 selectedStyleAssets: {
                   ...state.selectedStyleAssets,
-                  [type]: asset,
+                  [type]: assets,
                 },
               })
             }

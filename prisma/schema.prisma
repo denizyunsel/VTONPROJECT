@@ -56,20 +56,21 @@ model UserModelAccess {
 }
 
 model StyleAsset {
-  id        String          @id @default(cuid())
-  brandId   String
-  brand     Brand           @relation(fields: [brandId], references: [id])
-  type      StyleAssetType
-  imageUrl  String
-  label     String
-  createdAt DateTime        @default(now())
+  id            String          @id @default(cuid())
+  brandId       String
+  brand         Brand           @relation(fields: [brandId], references: [id])
+  type          StyleAssetType
+  imageUrl      String
+  label         String
+  sendToPrompt  Boolean         @default(true)
+  createdAt     DateTime        @default(now())
 }
 
 enum StyleAssetType {
   LIGHTING
   POSE
   BACKGROUND
-  STYLE
+  COMPOSITION
 }
 
 model TryOnJob {

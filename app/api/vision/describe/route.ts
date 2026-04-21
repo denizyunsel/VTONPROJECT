@@ -11,13 +11,28 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { imageUrl } = await request.json();
+    const { imageUrl, assetType } = await request.json();
     if (!imageUrl) {
       return NextResponse.json(
         { error: "imageUrl is required" },
         { status: 400 }
       );
     }
+
+    const typePrompts: Record<string, string> = {
+      LIGHTING:
+        "Describe the lighting in this image as a photography direction instruction. Focus on light source, direction, intensity, color temperature, and shadows. One concise paragraph in English.",
+      POSE:
+        "Describe the body pose and posture in this image as a photography direction instruction. Focus on stance, body language, limb positions, and expression. One concise paragraph in English.",
+      BACKGROUND:
+        "Describe the background and environment in this image as a photography direction instruction. Focus on setting, colors, textures, depth, and atmosphere. One concise paragraph in English.",
+      COMPOSITION:
+        "Describe the overall visual style and aesthetic of this image as a photography direction instruction. Focus on mood, tone, color palette, and stylistic qualities. One concise paragraph in English.",
+    };
+
+    const describePrompt =
+      typePrompts[assetType as string] ||
+      "Describe this image as a photography direction instruction. Write one concise paragraph in English.";
 
     // Fetch image and convert to base64
     const imageRes = await fetch(imageUrl);
@@ -43,7 +58,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: "text",
-              text: "Describe this image as a photography direction instruction. If there is lighting, describe the lighting type. If there is a pose, describe the body language. If there is a background, describe the environment. Write one concise paragraph in English.",
+              text: describePrompt,
             },
           ],
         },

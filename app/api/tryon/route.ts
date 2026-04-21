@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { runTryOn } from "@/lib/fal";
-import { generatePrompt, buildFalPrompt } from "@/lib/prompt-generator";
+import {
+  generatePrompt,
+  buildFalPrompt,
+  fetchAsBase64,
+  type DetailItem,
+} from "@/lib/prompt-generator";
 
 const BLOB_CONFIGURED =
   !!process.env.BLOB_READ_WRITE_TOKEN &&
@@ -24,7 +29,6 @@ export async function POST(request: NextRequest) {
     selectedStyleAssets,
   } = await request.json();
 
-  // 1. Create job record
   const job = await prisma.tryOnJob.create({
     data: {
       userId: session.userId,
@@ -37,17 +41,15 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Run the job async — respond immediately with jobId
   processJob({
     jobId: job.id,
-    userId: session.userId,
     brandId: session.brandId,
     modelId,
     topGarmentUrls,
     bottomGarmentUrls,
     topDescription: topDescription || "",
     bottomDescription: bottomDescription || "",
-    productDetails,
+    productDetails: productDetails || "",
     selectedStyleAssets: selectedStyleAssets || {},
   }).catch(console.error);
 
@@ -56,7 +58,6 @@ export async function POST(request: NextRequest) {
 
 async function processJob(params: {
   jobId: string;
-  userId: string;
   brandId: string;
   modelId: string;
   topGarmentUrls: string[];
@@ -79,78 +80,86 @@ async function processJob(params: {
   } = params;
 
   try {
-    // 2. Describe selected style asset images via vision API
-    const styleDescriptions: Record<string, string> = {};
-    for (const [assetType, assetId] of Object.entries(selectedStyleAssets)) {
-      if (!assetId) continue;
-      const asset = await prisma.styleAsset.findUnique({
-        where: { id: assetId },
-      });
-      if (!asset) continue;
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/vision/describe`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: asset.imageUrl }),
-          }
-        );
-        const data = await res.json();
-        if (data.description) styleDescriptions[assetType] = data.description;
-      } catch {
-        // vision description is best-effort
-      }
-    }
-
-    // 3. Generate prompt
     await prisma.tryOnJob.update({
       where: { id: jobId },
       data: { status: "GENERATING_PROMPT" },
     });
 
-    const brand = await prisma.brand.findUnique({ where: { id: brandId } });
-    const aiModel = await prisma.aIModel.findUnique({ where: { id: modelId } });
+    const [brand, aiModel] = await Promise.all([
+      prisma.brand.findUnique({ where: { id: brandId } }),
+      prisma.aIModel.findUnique({ where: { id: modelId } }),
+    ]);
 
-    const combinedProductDetails = [
-      productDetails,
-      topDescription,
-      bottomDescription,
-    ]
-      .filter(Boolean)
-      .join(", ");
+    // Fetch all images in parallel
+    const [topImages, bottomImages, modelImage] = await Promise.all([
+      Promise.all(topGarmentUrls.map(fetchAsBase64)),
+      Promise.all(bottomGarmentUrls.map(fetchAsBase64)),
+      aiModel?.imageUrl ? fetchAsBase64(aiModel.imageUrl) : Promise.resolve(null),
+    ]);
 
-    let modelImageBase64: string | undefined;
-    let modelImageMediaType: string | undefined;
-    if (aiModel?.imageUrl) {
-      try {
-        const imgRes = await fetch(aiModel.imageUrl);
-        const arrayBuffer = await imgRes.arrayBuffer();
-        modelImageBase64 = Buffer.from(arrayBuffer).toString("base64");
-        modelImageMediaType = (imgRes.headers.get("content-type") || "image/jpeg") as string;
-      } catch {
-        // model image fetch is best-effort
-      }
-    }
+    // Fetch style asset images from DB then as base64
+    const assetTypeMap: Record<string, string> = {
+      LIGHTING: "lighting",
+      POSE: "pose",
+      BACKGROUND: "environment",
+      COMPOSITION: "composition",
+    };
+
+    const styleDetails: Record<string, DetailItem> = {
+      lighting: { desc: "", images: [] },
+      pose: { desc: "", images: [] },
+      environment: { desc: "", images: [] },
+      composition: { desc: "", images: [] },
+    };
+
+    await Promise.all(
+      Object.entries(selectedStyleAssets).map(async ([assetType, assetId]) => {
+        if (!assetId) return;
+        const asset = await prisma.styleAsset.findUnique({ where: { id: assetId } });
+        const key = assetTypeMap[assetType];
+        if (key && asset && asset.sendToPrompt) {
+          styleDetails[key].desc = asset.label;
+          if (asset.imageUrl) {
+            const img = await fetchAsBase64(asset.imageUrl);
+            if (img) styleDetails[key].images = [img];
+          }
+        }
+      })
+    );
+
+    const topDesc = [productDetails, topDescription].filter(Boolean).join(". ");
+
+    const details = {
+      top: {
+        desc: topDesc,
+        images: topImages.filter(Boolean) as NonNullable<typeof topImages[0]>[],
+      },
+      bottom: {
+        desc: bottomDescription,
+        images: bottomImages.filter(Boolean) as NonNullable<typeof bottomImages[0]>[],
+      },
+      model: {
+        desc: "",
+        images: modelImage ? [modelImage] : [],
+      },
+      lighting: styleDetails.lighting,
+      pose: styleDetails.pose,
+      environment: styleDetails.environment,
+      composition: styleDetails.composition,
+    };
 
     const promptResult = await generatePrompt({
-      productDetails: combinedProductDetails,
       brandSlug: brand!.slug,
-      imageBase64: modelImageBase64,
-      imageMediaType: modelImageMediaType,
+      details,
     });
 
-    const falPrompt = buildFalPrompt(
-      promptResult.prompt.image_prompt,
-      styleDescriptions
-    );
+    const falPrompt = buildFalPrompt(promptResult.prompt.image_prompt);
 
     await prisma.tryOnJob.update({
       where: { id: jobId },
       data: { generatedPrompt: promptResult as object },
     });
 
-    // 4. Run Fal.ai try-on
     await prisma.tryOnJob.update({
       where: { id: jobId },
       data: { status: "PROCESSING" },
@@ -166,7 +175,6 @@ async function processJob(params: {
     const resultImageUrl = falResult.images[0]?.url;
     if (!resultImageUrl) throw new Error("No result image from fal.ai");
 
-    // 5. Save result image to Vercel Blob (if configured), otherwise use fal URL directly
     let finalResultUrl = resultImageUrl;
     if (BLOB_CONFIGURED) {
       const { put } = await import("@vercel/blob");
@@ -180,7 +188,6 @@ async function processJob(params: {
       finalResultUrl = blob.url;
     }
 
-    // 6. Update job as completed
     await prisma.tryOnJob.update({
       where: { id: jobId },
       data: { status: "COMPLETED", resultUrl: finalResultUrl },
