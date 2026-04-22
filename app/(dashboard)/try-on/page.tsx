@@ -21,6 +21,7 @@ interface WizardState {
   selectedModelId: string | null;
   productDetails: string;
   selectedStyleAssets: Record<string, StyleAsset | null>;
+  styleDescriptions: Record<string, string>;
   jobId: string | null;
 }
 
@@ -37,6 +38,7 @@ export default function TryOnPage() {
     selectedModelId: null,
     productDetails: "",
     selectedStyleAssets: {},
+    styleDescriptions: {},
     jobId: null,
   });
 
@@ -64,6 +66,7 @@ export default function TryOnPage() {
           bottomDescription: state.bottomDescription,
           productDetails: state.productDetails,
           selectedStyleAssets: selectedAssetIds,
+          styleDescriptions: state.styleDescriptions,
         }),
       });
 
@@ -89,6 +92,7 @@ export default function TryOnPage() {
       selectedModelId: null,
       productDetails: "",
       selectedStyleAssets: {},
+      styleDescriptions: {},
       jobId: null,
     });
     setStep(1);
@@ -161,11 +165,20 @@ export default function TryOnPage() {
         {step === 3 && (
           <Step3Details
             selectedStyleAssets={state.selectedStyleAssets}
+            styleDescriptions={state.styleDescriptions}
             onStyleAssetChange={(type, assets) =>
               update({
                 selectedStyleAssets: {
                   ...state.selectedStyleAssets,
                   [type]: assets,
+                },
+              })
+            }
+            onStyleDescriptionChange={(type, desc) =>
+              update({
+                styleDescriptions: {
+                  ...state.styleDescriptions,
+                  [type]: desc,
                 },
               })
             }

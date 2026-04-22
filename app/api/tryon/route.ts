@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     bottomDescription,
     productDetails,
     selectedStyleAssets,
+    styleDescriptions,
   } = await request.json();
 
   const job = await prisma.tryOnJob.create({
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     bottomDescription: bottomDescription || "",
     productDetails: productDetails || "",
     selectedStyleAssets: selectedStyleAssets || {},
+    styleDescriptions: styleDescriptions || {},
   }).catch(console.error);
 
   return NextResponse.json({ jobId: job.id });
@@ -66,6 +68,7 @@ async function processJob(params: {
   bottomDescription: string;
   productDetails: string;
   selectedStyleAssets: Record<string, string>;
+  styleDescriptions: Record<string, string>;
 }) {
   const {
     jobId,
@@ -77,6 +80,7 @@ async function processJob(params: {
     bottomDescription,
     productDetails,
     selectedStyleAssets,
+    styleDescriptions,
   } = params;
 
   try {
@@ -112,17 +116,30 @@ async function processJob(params: {
       composition: { desc: "", images: [] },
     };
 
+    const allAssetTypes = new Set([
+      ...Object.keys(selectedStyleAssets),
+      ...Object.keys(styleDescriptions),
+    ]);
+
     await Promise.all(
-      Object.entries(selectedStyleAssets).map(async ([assetType, assetId]) => {
-        if (!assetId) return;
-        const asset = await prisma.styleAsset.findUnique({ where: { id: assetId } });
+      Array.from(allAssetTypes).map(async (assetType) => {
         const key = assetTypeMap[assetType];
-        if (key && asset && asset.sendToPrompt) {
-          styleDetails[key].desc = asset.label;
-          if (asset.imageUrl) {
-            const img = await fetchAsBase64(asset.imageUrl);
-            if (img) styleDetails[key].images = [img];
+        if (!key) return;
+
+        const userDesc = styleDescriptions[assetType] || "";
+        const assetId = selectedStyleAssets[assetType];
+
+        if (assetId) {
+          const asset = await prisma.styleAsset.findUnique({ where: { id: assetId } });
+          if (asset) {
+            styleDetails[key].desc = [asset.label, userDesc].filter(Boolean).join(". ");
+            if (asset.imageUrl) {
+              const img = await fetchAsBase64(asset.imageUrl);
+              if (img) styleDetails[key].images = [img];
+            }
           }
+        } else if (userDesc) {
+          styleDetails[key].desc = userDesc;
         }
       })
     );
@@ -165,11 +182,19 @@ async function processJob(params: {
       data: { status: "PROCESSING" },
     });
 
+    const backgroundAssetId = selectedStyleAssets["BACKGROUND"];
+    let backgroundImageUrl: string | undefined;
+    if (backgroundAssetId) {
+      const bgAsset = await prisma.styleAsset.findUnique({ where: { id: backgroundAssetId } });
+      if (bgAsset?.imageUrl) backgroundImageUrl = bgAsset.imageUrl;
+    }
+
     const falResult = await runTryOn({
       modelImageUrl: aiModel!.imageUrl,
       topGarmentUrls,
       bottomGarmentUrls,
       prompt: falPrompt,
+      backgroundImageUrl,
     });
 
     const resultImageUrl = falResult.images[0]?.url;

@@ -12,7 +12,9 @@ interface StyleAsset {
 
 interface Props {
   selectedStyleAssets: Record<string, StyleAsset | null>;
+  styleDescriptions: Record<string, string>;
   onStyleAssetChange: (type: string, asset: StyleAsset | null) => void;
+  onStyleDescriptionChange: (type: string, desc: string) => void;
   onBack: () => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -30,11 +32,15 @@ const TYPE_LABELS: Record<string, string> = {
 function StyleAssetSection({
   type,
   selected,
+  description,
   onSelect,
+  onDescriptionChange,
 }: {
   type: string;
   selected: StyleAsset | null;
+  description: string;
   onSelect: (asset: StyleAsset | null) => void;
+  onDescriptionChange: (desc: string) => void;
 }) {
   const [assets, setAssets] = useState<StyleAsset[]>([]);
 
@@ -90,13 +96,22 @@ function StyleAssetSection({
           );
         })}
       </div>
+      <textarea
+        value={description}
+        onChange={(e) => onDescriptionChange(e.target.value)}
+        placeholder={`Describe the ${TYPE_LABELS[type].toLowerCase()} (optional)`}
+        rows={2}
+        className="w-full text-sm border border-gray-200 rounded-md px-3 py-2 text-gray-700 placeholder-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400"
+      />
     </div>
   );
 }
 
 export default function Step3Details({
   selectedStyleAssets,
+  styleDescriptions,
   onStyleAssetChange,
+  onStyleDescriptionChange,
   onBack,
   onSubmit,
   submitting,
@@ -119,7 +134,9 @@ export default function Step3Details({
             key={type}
             type={type}
             selected={selectedStyleAssets[type] || null}
+            description={styleDescriptions[type] || ""}
             onSelect={(asset) => onStyleAssetChange(type, asset)}
+            onDescriptionChange={(desc) => onStyleDescriptionChange(type, desc)}
           />
         ))}
       </div>
