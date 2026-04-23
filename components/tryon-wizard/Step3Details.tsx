@@ -13,8 +13,10 @@ interface StyleAsset {
 interface Props {
   selectedStyleAssets: Record<string, StyleAsset | null>;
   styleDescriptions: Record<string, string>;
+  resolution: "1K" | "2K" | "4K";
   onStyleAssetChange: (type: string, asset: StyleAsset | null) => void;
   onStyleDescriptionChange: (type: string, desc: string) => void;
+  onResolutionChange: (res: "1K" | "2K" | "4K") => void;
   onBack: () => void;
   onSubmit: () => void;
   submitting: boolean;
@@ -110,8 +112,10 @@ function StyleAssetSection({
 export default function Step3Details({
   selectedStyleAssets,
   styleDescriptions,
+  resolution,
   onStyleAssetChange,
   onStyleDescriptionChange,
+  onResolutionChange,
   onBack,
   onSubmit,
   submitting,
@@ -139,6 +143,25 @@ export default function Step3Details({
             onDescriptionChange={(desc) => onStyleDescriptionChange(type, desc)}
           />
         ))}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-gray-800">Resolution</p>
+        <div className="flex gap-2">
+          {(["1K", "2K", "4K"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => onResolutionChange(r)}
+              className={`px-4 py-2 rounded-md border text-sm font-medium transition-colors ${
+                resolution === r
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 text-gray-600 hover:border-gray-400"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-between">

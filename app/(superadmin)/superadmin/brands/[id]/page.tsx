@@ -41,11 +41,13 @@ function AssetCard({
   asset,
   brandId,
   onImageUpdate,
+  onImageClear,
   onDelete,
 }: {
   asset: StyleAsset;
   brandId: string;
   onImageUpdate: (id: string, imageUrl: string) => void;
+  onImageClear: () => void;
   onDelete: (id: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,6 +66,16 @@ function AssetCard({
       onImageUpdate(asset.id, updated.imageUrl);
     }
     e.target.value = "";
+  }
+
+  function handleClearImage(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    fetch(`/api/superadmin/brands/${brandId}/style-assets/${asset.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clearImage: true }),
+    }).then((res) => { if (res.ok) onImageClear(); });
   }
 
   return (
@@ -94,6 +106,16 @@ function AssetCard({
         )}
       </div>
 
+      {asset.imageUrl && (
+        <button
+          type="button"
+          onClick={handleClearImage}
+          className="text-xs text-red-500 underline cursor-pointer bg-transparent border-0 p-1 hover:text-red-700"
+        >
+          Görseli kaldır
+        </button>
+      )}
+
       <p style={{ fontSize: 11, color: "#4b5563", textAlign: "center", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingInline: 4 }}>
         {asset.label}
       </p>
@@ -102,7 +124,7 @@ function AssetCard({
         type="button"
         onClick={() => onDelete(asset.id)}
         style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "50%", padding: 3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-        title="Delete"
+        title="Delete asset"
       >
         <Trash2 style={{ width: 12, height: 12, color: "#ef4444" }} />
       </button>
@@ -194,12 +216,14 @@ export default function BrandDetailPage() {
   const [creatingUser, setCreatingUser] = useState(false);
   const [userError, setUserError] = useState("");
 
-  useEffect(() => {
-    fetch(`/api/superadmin/brands/${brandId}`)
-      .then((r) => r.json())
-      .then((d) => setBrand(d.brand || null))
-      .finally(() => setLoading(false));
-  }, [brandId]);
+  async function loadBrand() {
+    const r = await fetch(`/api/superadmin/brands/${brandId}`);
+    const d = await r.json();
+    setBrand(d.brand || null);
+    setLoading(false);
+  }
+
+  useEffect(() => { loadBrand(); }, [brandId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleAssetUploaded(asset: StyleAsset) {
     setBrand((b) => b ? { ...b, styleAssets: [...b.styleAssets, asset] } : b);
@@ -207,7 +231,7 @@ export default function BrandDetailPage() {
 
   async function handleDeleteAsset(assetId: string) {
     const res = await fetch(`/api/superadmin/brands/${brandId}/style-assets/${assetId}`, { method: "DELETE" });
-    if (res.ok) setBrand((b) => b ? { ...b, styleAssets: b.styleAssets.filter((a) => a.id !== assetId) } : b);
+    if (res.ok) await loadBrand();
   }
 
   async function handleCreateUser(e: React.FormEvent) {
@@ -269,6 +293,7 @@ export default function BrandDetailPage() {
                       onImageUpdate={(id, imageUrl) =>
                         setBrand((b) => b ? { ...b, styleAssets: b.styleAssets.map((a) => a.id === id ? { ...a, imageUrl } : a) } : b)
                       }
+                      onImageClear={loadBrand}
                       onDelete={handleDeleteAsset}
                     />
                   ))}

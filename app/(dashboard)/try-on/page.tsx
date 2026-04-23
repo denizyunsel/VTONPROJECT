@@ -22,6 +22,7 @@ interface WizardState {
   productDetails: string;
   selectedStyleAssets: Record<string, StyleAsset | null>;
   styleDescriptions: Record<string, string>;
+  resolution: "1K" | "2K" | "4K";
   jobId: string | null;
 }
 
@@ -39,6 +40,7 @@ export default function TryOnPage() {
     productDetails: "",
     selectedStyleAssets: {},
     styleDescriptions: {},
+    resolution: "1K",
     jobId: null,
   });
 
@@ -67,6 +69,7 @@ export default function TryOnPage() {
           productDetails: state.productDetails,
           selectedStyleAssets: selectedAssetIds,
           styleDescriptions: state.styleDescriptions,
+          resolution: state.resolution,
         }),
       });
 
@@ -93,6 +96,7 @@ export default function TryOnPage() {
       productDetails: "",
       selectedStyleAssets: {},
       styleDescriptions: {},
+      resolution: "1K",
       jobId: null,
     });
     setStep(1);
@@ -166,6 +170,7 @@ export default function TryOnPage() {
           <Step3Details
             selectedStyleAssets={state.selectedStyleAssets}
             styleDescriptions={state.styleDescriptions}
+            resolution={state.resolution}
             onStyleAssetChange={(type, assets) =>
               update({
                 selectedStyleAssets: {
@@ -182,6 +187,7 @@ export default function TryOnPage() {
                 },
               })
             }
+            onResolutionChange={(res) => update({ resolution: res })}
             onBack={() => setStep(2)}
             onSubmit={handleSubmit}
             submitting={submitting}

@@ -37,10 +37,20 @@ export async function PATCH(
     return NextResponse.json({ asset: updated });
   }
 
-  const { sendToPrompt } = await request.json();
+  const body = await request.json();
+
+  if (body.clearImage) {
+    const updated = await prisma.styleAsset.update({
+      where: { id: assetId },
+      data: { imageUrl: "" },
+      select: { id: true, imageUrl: true },
+    });
+    return NextResponse.json({ asset: updated });
+  }
+
   const updated = await prisma.styleAsset.update({
     where: { id: assetId },
-    data: { sendToPrompt },
+    data: { sendToPrompt: body.sendToPrompt },
     select: { id: true, sendToPrompt: true },
   });
 

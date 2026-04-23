@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
     productDetails,
     selectedStyleAssets,
     styleDescriptions,
+    resolution,
+    seed,
   } = await request.json();
 
   const job = await prisma.tryOnJob.create({
@@ -53,6 +55,8 @@ export async function POST(request: NextRequest) {
     productDetails: productDetails || "",
     selectedStyleAssets: selectedStyleAssets || {},
     styleDescriptions: styleDescriptions || {},
+    resolution: resolution || "1K",
+    seed: typeof seed === "number" ? seed : undefined,
   }).catch(console.error);
 
   return NextResponse.json({ jobId: job.id });
@@ -69,6 +73,8 @@ async function processJob(params: {
   productDetails: string;
   selectedStyleAssets: Record<string, string>;
   styleDescriptions: Record<string, string>;
+  resolution: "1K" | "2K" | "4K";
+  seed?: number;
 }) {
   const {
     jobId,
@@ -81,6 +87,8 @@ async function processJob(params: {
     productDetails,
     selectedStyleAssets,
     styleDescriptions,
+    resolution,
+    seed,
   } = params;
 
   try {
@@ -195,6 +203,8 @@ async function processJob(params: {
       bottomGarmentUrls,
       prompt: falPrompt,
       backgroundImageUrl,
+      resolution,
+      seed,
     });
 
     const resultImageUrl = falResult.images[0]?.url;

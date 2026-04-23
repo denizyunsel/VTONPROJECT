@@ -84,6 +84,7 @@ model TryOnJob {
   productDetails    String
   generatedPrompt   Json
   resultUrl         String?
+  seed              Int?
   status            JobStatus   @default(PENDING)
   errorMessage      String?
   createdAt         DateTime    @default(now())
