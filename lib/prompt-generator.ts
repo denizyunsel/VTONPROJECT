@@ -39,6 +39,7 @@ export interface GeneratePromptResult {
   prompt: {
     image_prompt: ImagePrompt;
   };
+  imageReferencePrefix?: string;
 }
 
 export async function generatePrompt(
@@ -61,12 +62,14 @@ export async function generatePrompt(
   return response.json();
 }
 
-export function buildFalPrompt(imagePrompt: ImagePrompt): string {
+export function buildFalPrompt(imagePrompt: ImagePrompt, hasBackground?: boolean): string {
   const parts = [
     imagePrompt.subject_description,
     imagePrompt.pose_and_body_language,
     imagePrompt.outfit,
-    imagePrompt.environment,
+    hasBackground
+      ? `Background: ${imagePrompt.environment} — match the provided background image exactly`
+      : imagePrompt.environment,
     imagePrompt.lighting,
     imagePrompt.composition,
     imagePrompt.styling,

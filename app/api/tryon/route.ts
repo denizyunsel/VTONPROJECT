@@ -178,7 +178,10 @@ async function processJob(params: {
       details,
     });
 
-    const falPrompt = buildFalPrompt(promptResult.prompt.image_prompt);
+    const basePrompt = buildFalPrompt(promptResult.prompt.image_prompt, !!selectedStyleAssets["BACKGROUND"]);
+    const falPrompt = promptResult.imageReferencePrefix
+      ? `${promptResult.imageReferencePrefix} ${basePrompt}`
+      : basePrompt;
 
     await prisma.tryOnJob.update({
       where: { id: jobId },
@@ -190,8 +193,9 @@ async function processJob(params: {
       data: { status: "PROCESSING" },
     });
 
-    const backgroundAssetId = selectedStyleAssets["BACKGROUND"];
+    // Background asset varsa imageUrl'ini al ve fal.ai'ya son sırada gönder
     let backgroundImageUrl: string | undefined;
+    const backgroundAssetId = selectedStyleAssets["BACKGROUND"];
     if (backgroundAssetId) {
       const bgAsset = await prisma.styleAsset.findUnique({ where: { id: backgroundAssetId } });
       if (bgAsset?.imageUrl) backgroundImageUrl = bgAsset.imageUrl;
