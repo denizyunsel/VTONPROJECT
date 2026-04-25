@@ -62,6 +62,23 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ jobId: job.id });
 }
 
+function buildLocalImageRefPrefix(topCount: number, bottomCount: number, hasBackground: boolean): string {
+  const lines: string[] = [];
+  let idx = 1;
+  lines.push(`Image ${idx}: an AI-generated fashion model — this is a synthetic human created specifically for fashion photography. Preserve the face, skin tone, hair, and body shape exactly as shown; do not alter, replace, or reinterpret any facial or physical features.`);
+  idx++;
+  for (let i = 0; i < topCount; i++, idx++) {
+    lines.push(`Image ${idx}: top garment${topCount > 1 ? ` ${i + 1}` : ""} — dress the model with this exact top garment.`);
+  }
+  for (let i = 0; i < bottomCount; i++, idx++) {
+    lines.push(`Image ${idx}: bottom garment${bottomCount > 1 ? ` ${i + 1}` : ""} — dress the model with this exact bottom garment.`);
+  }
+  if (hasBackground) {
+    lines.push(`Image ${idx}: background scene — place the fully dressed model in front of this exact background. Reproduce the background faithfully; do not alter or replace it.`);
+  }
+  return lines.join(" ");
+}
+
 async function processJob(params: {
   jobId: string;
   brandId: string;
@@ -179,9 +196,14 @@ async function processJob(params: {
     });
 
     const basePrompt = buildFalPrompt(promptResult.prompt.image_prompt, !!selectedStyleAssets["BACKGROUND"]);
-    const falPrompt = promptResult.imageReferencePrefix
-      ? `${promptResult.imageReferencePrefix} ${basePrompt}`
-      : basePrompt;
+
+    // Prompt generator prefix döndürmediyse (eski deploy) burada hesapla
+    const imageRefPrefix = promptResult.imageReferencePrefix || buildLocalImageRefPrefix(
+      topGarmentUrls.length,
+      bottomGarmentUrls.length,
+      !!selectedStyleAssets["BACKGROUND"]
+    );
+    const falPrompt = `${imageRefPrefix} ${basePrompt}`;
 
     await prisma.tryOnJob.update({
       where: { id: jobId },
@@ -200,6 +222,9 @@ async function processJob(params: {
       const bgAsset = await prisma.styleAsset.findUnique({ where: { id: backgroundAssetId } });
       if (bgAsset?.imageUrl) backgroundImageUrl = bgAsset.imageUrl;
     }
+
+    console.log("[tryon] backgroundImageUrl:", backgroundImageUrl ?? "YOK");
+    console.log("[tryon] falPrompt:", falPrompt);
 
     const falResult = await runTryOn({
       modelImageUrl: aiModel!.imageUrl,
