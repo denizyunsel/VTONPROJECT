@@ -179,6 +179,7 @@ async function processJob(params: {
     });
 
     const falPrompt = buildFalPrompt(promptResult.prompt.image_prompt);
+    console.log("[tryon] falPrompt:", falPrompt);
 
     await prisma.tryOnJob.update({
       where: { id: jobId },
