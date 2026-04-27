@@ -14,10 +14,13 @@ interface StyleAsset {
 }
 
 interface WizardState {
+  garmentMode: "separates" | "dress";
   topGarmentUrls: string[];
   bottomGarmentUrls: string[];
   topDescription: string;
   bottomDescription: string;
+  dressUrls: string[];
+  dressDescription: string;
   selectedModelId: string | null;
   productDetails: string;
   selectedStyleAssets: Record<string, StyleAsset | null>;
@@ -32,10 +35,13 @@ export default function TryOnPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [state, setState] = useState<WizardState>({
+    garmentMode: "separates",
     topGarmentUrls: [],
     bottomGarmentUrls: [],
     topDescription: "",
     bottomDescription: "",
+    dressUrls: [],
+    dressDescription: "",
     selectedModelId: null,
     productDetails: "",
     selectedStyleAssets: {},
@@ -62,10 +68,13 @@ export default function TryOnPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           modelId: state.selectedModelId,
+          garmentMode: state.garmentMode,
           topGarmentUrls: state.topGarmentUrls,
           bottomGarmentUrls: state.bottomGarmentUrls,
           topDescription: state.topDescription,
           bottomDescription: state.bottomDescription,
+          dressUrls: state.dressUrls,
+          dressDescription: state.dressDescription,
           productDetails: state.productDetails,
           selectedStyleAssets: selectedAssetIds,
           styleDescriptions: state.styleDescriptions,
@@ -88,10 +97,13 @@ export default function TryOnPage() {
 
   function handleRetry() {
     setState({
+      garmentMode: "separates",
       topGarmentUrls: [],
       bottomGarmentUrls: [],
       topDescription: "",
       bottomDescription: "",
+      dressUrls: [],
+      dressDescription: "",
       selectedModelId: null,
       productDetails: "",
       selectedStyleAssets: {},
@@ -147,14 +159,20 @@ export default function TryOnPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         {step === 1 && (
           <Step1Upload
+            garmentMode={state.garmentMode}
             topGarmentUrls={state.topGarmentUrls}
             bottomGarmentUrls={state.bottomGarmentUrls}
             topDescription={state.topDescription}
             bottomDescription={state.bottomDescription}
+            dressUrls={state.dressUrls}
+            dressDescription={state.dressDescription}
+            onGarmentModeChange={(mode) => update({ garmentMode: mode })}
             onTopChange={(urls) => update({ topGarmentUrls: urls })}
             onBottomChange={(urls) => update({ bottomGarmentUrls: urls })}
             onTopDescriptionChange={(val) => update({ topDescription: val })}
             onBottomDescriptionChange={(val) => update({ bottomDescription: val })}
+            onDressChange={(urls) => update({ dressUrls: urls })}
+            onDressDescriptionChange={(val) => update({ dressDescription: val })}
             onNext={() => setStep(2)}
           />
         )}
