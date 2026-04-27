@@ -18,6 +18,13 @@ interface BrandUser {
   createdAt: string;
 }
 
+interface AIModel {
+  id: string;
+  name: string;
+  imageUrl: string;
+  thumbnailUrl: string;
+}
+
 interface Brand {
   id: string;
   name: string;
@@ -215,6 +222,13 @@ export default function BrandDetailPage() {
   const [userForm, setUserForm] = useState({ email: "", password: "" });
   const [creatingUser, setCreatingUser] = useState(false);
   const [userError, setUserError] = useState("");
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [showModelForm, setShowModelForm] = useState(false);
+  const [modelForm, setModelForm] = useState({ name: "" });
+  const [modelFile, setModelFile] = useState<File | null>(null);
+  const [creatingModel, setCreatingModel] = useState(false);
+  const [modelError, setModelError] = useState("");
+  const modelFileRef = useRef<HTMLInputElement>(null);
 
   async function loadBrand() {
     const r = await fetch(`/api/superadmin/brands/${brandId}`);
@@ -223,7 +237,13 @@ export default function BrandDetailPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadBrand(); }, [brandId]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadModels() {
+    const r = await fetch(`/api/superadmin/brands/${brandId}/models`);
+    const d = await r.json();
+    setModels(d.models || []);
+  }
+
+  useEffect(() => { loadBrand(); loadModels(); }, [brandId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleAssetUploaded(asset: StyleAsset) {
     setBrand((b) => b ? { ...b, styleAssets: [...b.styleAssets, asset] } : b);
@@ -258,6 +278,34 @@ export default function BrandDetailPage() {
   async function handleDeleteUser(userId: string) {
     const res = await fetch(`/api/superadmin/brands/${brandId}/users/${userId}`, { method: "DELETE" });
     if (res.ok) setBrand((b) => b ? { ...b, users: b.users.filter((u) => u.id !== userId) } : b);
+  }
+
+  async function handleCreateModel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!modelFile) { setModelError("Please select an image."); return; }
+    setCreatingModel(true);
+    setModelError("");
+    const fd = new FormData();
+    fd.append("name", modelForm.name);
+    fd.append("file", modelFile);
+    const res = await fetch(`/api/superadmin/brands/${brandId}/models`, { method: "POST", body: fd });
+    if (res.ok) {
+      const { model } = await res.json();
+      setModels((prev) => [...prev, model]);
+      setModelForm({ name: "" });
+      setModelFile(null);
+      if (modelFileRef.current) modelFileRef.current.value = "";
+      setShowModelForm(false);
+    } else {
+      const d = await res.json();
+      setModelError(d.error || "Failed");
+    }
+    setCreatingModel(false);
+  }
+
+  async function handleDeleteModel(modelId: string) {
+    const res = await fetch(`/api/superadmin/brands/${brandId}/models/${modelId}`, { method: "DELETE" });
+    if (res.ok) setModels((prev) => prev.filter((m) => m.id !== modelId));
   }
 
   if (loading) return <p className="text-sm text-gray-500">Loading...</p>;
@@ -303,6 +351,81 @@ export default function BrandDetailPage() {
             </div>
           );
         })}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">AI Models</h2>
+          <button
+            onClick={() => setShowModelForm((v) => !v)}
+            className="flex items-center gap-1 text-sm bg-gray-900 text-white px-3 py-1.5 rounded hover:bg-gray-700"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Model
+          </button>
+        </div>
+
+        {showModelForm && (
+          <form onSubmit={handleCreateModel} className="bg-white border border-gray-200 rounded-lg p-5 space-y-3 max-w-sm">
+            <div>
+              <label className="text-xs text-gray-500">Name</label>
+              <input
+                type="text"
+                value={modelForm.name}
+                onChange={(e) => setModelForm({ name: e.target.value })}
+                placeholder="e.g. Aysegul"
+                className="mt-1 w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">Image</label>
+              <input
+                ref={modelFileRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => setModelFile(e.target.files?.[0] ?? null)}
+                className="mt-1 text-sm text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                required
+              />
+            </div>
+            {modelError && <p className="text-xs text-red-500">{modelError}</p>}
+            <div className="flex gap-2">
+              <button type="submit" disabled={creatingModel} className="bg-gray-900 text-white text-sm px-4 py-1.5 rounded hover:bg-gray-700 disabled:opacity-50">
+                {creatingModel ? "Uploading..." : "Add Model"}
+              </button>
+              <button type="button" onClick={() => setShowModelForm(false)} className="text-sm text-gray-500 hover:text-gray-700">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {models.length === 0 ? (
+          <p className="text-sm text-gray-400">No models yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {models.map((model) => (
+              <div key={model.id} style={{ width: 120, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={model.thumbnailUrl}
+                  alt={model.name}
+                  style={{ width: 112, height: 140, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb" }}
+                />
+                <p style={{ fontSize: 12, fontWeight: 500, color: "#374151", textAlign: "center" }}>{model.name}</p>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteModel(model.id)}
+                  style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "50%", padding: 4, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  title="Remove model"
+                >
+                  <Trash2 style={{ width: 12, height: 12, color: "#ef4444" }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-4">
