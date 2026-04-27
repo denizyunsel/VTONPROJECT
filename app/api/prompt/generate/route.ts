@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { generatePrompt } from "@/lib/prompt-generator";
+import { generatePrompt, GeneratePromptDetails } from "@/lib/prompt-generator";
 
 export async function POST(request: NextRequest) {
   const session = await getSession();
@@ -10,21 +10,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { productDetails, imageBase64, imageMediaType, brandSlug } = body;
+    const { brandSlug, details } = body as { brandSlug: string; details: GeneratePromptDetails };
 
-    if (!productDetails || !brandSlug) {
+    if (!brandSlug || !details) {
       return NextResponse.json(
-        { error: "productDetails and brandSlug are required" },
+        { error: "brandSlug and details are required" },
         { status: 400 }
       );
     }
 
-    const result = await generatePrompt({
-      productDetails,
-      imageBase64,
-      imageMediaType,
-      brandSlug,
-    });
+    const result = await generatePrompt({ brandSlug, details });
 
     return NextResponse.json(result);
   } catch (error) {
