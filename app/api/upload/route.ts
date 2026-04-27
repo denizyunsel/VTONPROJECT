@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (type !== "top_garment" && type !== "bottom_garment") {
+    const validTypes = ["top_garment", "bottom_garment", "dress"];
+    if (!type || !validTypes.includes(type)) {
       return NextResponse.json(
-        { error: "Invalid type. Must be top_garment or bottom_garment" },
+        { error: "Invalid type. Must be top_garment, bottom_garment, or dress" },
         { status: 400 }
       );
     }
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (BLOB_CONFIGURED) {
       const { uploadGarment } = await import("@/lib/blob");
-      url = await uploadGarment(file, session.userId, type);
+      url = await uploadGarment(file, session.userId, type as "top_garment" | "bottom_garment" | "dress");
     } else {
       // Fallback: use fal.ai storage
       url = await fal.storage.upload(file);

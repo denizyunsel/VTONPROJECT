@@ -22,6 +22,7 @@ export interface DetailItem {
 export interface GeneratePromptDetails {
   top: DetailItem;
   bottom: DetailItem;
+  dress?: DetailItem;
   model: DetailItem;
   lighting: DetailItem;
   pose: DetailItem;
