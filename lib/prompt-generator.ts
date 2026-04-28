@@ -55,7 +55,26 @@ export async function generatePrompt(
   });
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "(no body)");
+    const body = await response.text().catch(() => "");
+    // The API sometimes wraps its Claude response in markdown code blocks and
+    // returns 500. If the error body contains a "raw" field with the actual
+    // prompt JSON, extract and use it instead of failing.
+    try {
+      const errJson = JSON.parse(body);
+      if (errJson.raw) {
+        const cleaned = errJson.raw
+          .replace(/^```json\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.image_prompt) {
+          return { brand: params.brandSlug, prompt: parsed };
+        }
+      }
+    } catch {
+      // fall through to original error
+    }
     throw new Error(`Prompt generator returned ${response.status}: ${body}`);
   }
 

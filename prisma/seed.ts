@@ -101,7 +101,7 @@ async function main() {
     },
     {
       id: "asset-style-1",
-      type: "STYLE" as const,
+      type: "COMPOSITION" as const,
       label: "Editorial",
       imageUrl:
         "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=300",
