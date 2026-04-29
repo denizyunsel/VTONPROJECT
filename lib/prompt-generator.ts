@@ -87,7 +87,7 @@ async function attemptGeneratePrompt(
 // The prompt generator may return plain JSON or an SSE stream.
 // Logs the raw response so the format is visible in server console.
 function parsePromptBody(body: string, brandSlug: string): GeneratePromptResult {
-  console.log("[prompt-generator] raw response start:", JSON.stringify(body.slice(0, 400)));
+  console.log("[prompt-generator] raw response (full):", JSON.stringify(body.slice(0, 4000)));
 
   const trimmed = body.trimStart();
 
