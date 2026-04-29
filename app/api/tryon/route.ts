@@ -239,14 +239,11 @@ async function processJob(params: {
     );
     const falPrompt = `${imageRefPrefix} ${basePrompt}`;
 
-    await prisma.tryOnJob.update({
-      where: { id: jobId },
-      data: { generatedPrompt: promptResult as object },
-    });
+    if (!aiModel) throw new Error("AI model not found");
 
     await prisma.tryOnJob.update({
       where: { id: jobId },
-      data: { status: "PROCESSING" },
+      data: { generatedPrompt: promptResult as object, status: "PROCESSING" },
     });
 
     const backgroundAssetId = selectedStyleAssets["BACKGROUND"];
@@ -257,7 +254,7 @@ async function processJob(params: {
     }
 
     const falResult = await runTryOn({
-      modelImageUrl: aiModel!.imageUrl,
+      modelImageUrl: aiModel.imageUrl,
       topGarmentUrls: isDress ? dressUrls : topGarmentUrls,
       bottomGarmentUrls: isDress ? [] : bottomGarmentUrls,
       prompt: falPrompt,
@@ -288,12 +285,16 @@ async function processJob(params: {
     });
   } catch (error) {
     console.error(`Job ${jobId} failed:`, error);
-    await prisma.tryOnJob.update({
-      where: { id: jobId },
-      data: {
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Unknown error",
-      },
-    });
+    try {
+      await prisma.tryOnJob.update({
+        where: { id: jobId },
+        data: {
+          status: "FAILED",
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+    } catch (dbError) {
+      console.error(`Job ${jobId}: also failed to write FAILED status:`, dbError);
+    }
   }
 }

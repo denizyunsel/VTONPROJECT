@@ -69,7 +69,8 @@ export async function runTryOn(input: TryOnInput): Promise<{ images: Array<{ url
     },
     logs: true,
     onQueueUpdate: (update) => {
-      if (update.status === "IN_PROGRESS") {
+      console.log(`fal queue update: ${update.status}`);
+      if (update.status === "IN_PROGRESS" && update.logs) {
         update.logs.map((log: { message: string }) => log.message).forEach(console.log);
       }
     },
