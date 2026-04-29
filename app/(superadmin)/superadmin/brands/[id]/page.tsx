@@ -8,6 +8,7 @@ import { Trash2, Upload, ArrowLeft, Plus } from "lucide-react";
 interface StyleAsset {
   id: string;
   label: string;
+  promptDescription: string | null;
   imageUrl: string;
   type: string;
 }
@@ -50,14 +51,18 @@ function AssetCard({
   onImageUpdate,
   onImageClear,
   onDelete,
+  onPromptDescUpdate,
 }: {
   asset: StyleAsset;
   brandId: string;
   onImageUpdate: (id: string, imageUrl: string) => void;
   onImageClear: () => void;
   onDelete: (id: string) => void;
+  onPromptDescUpdate: (id: string, promptDescription: string | null) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [desc, setDesc] = useState(asset.promptDescription || "");
+  const [saving, setSaving] = useState(false);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,56 +90,69 @@ function AssetCard({
     }).then((res) => { if (res.ok) onImageClear(); });
   }
 
-  return (
-    <div style={{ width: 104, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={handleFileChange}
-      />
+  async function handleSaveDesc() {
+    setSaving(true);
+    const res = await fetch(`/api/superadmin/brands/${brandId}/style-assets/${asset.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ promptDescription: desc.trim() || null }),
+    });
+    if (res.ok) onPromptDescUpdate(asset.id, desc.trim() || null);
+    setSaving(false);
+  }
 
-      <div
-        style={{ width: 96, height: 96, border: "1px solid #e5e7eb", borderRadius: 6, overflow: "hidden", cursor: "pointer", flexShrink: 0 }}
-        onClick={() => fileRef.current?.click()}
-      >
-        {asset.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={asset.imageUrl}
-            alt={asset.label}
-            style={{ width: 96, height: 96, objectFit: "cover", display: "block" }}
-          />
-        ) : (
-          <div style={{ width: "100%", height: "100%", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
-            <span style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", lineHeight: 1.3 }}>{asset.label}</span>
-          </div>
-        )}
+  return (
+    <div style={{ width: 200, display: "flex", flexDirection: "column", gap: 4 }}>
+      <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
+
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div
+          style={{ width: 72, height: 72, border: "1px solid #e5e7eb", borderRadius: 6, overflow: "hidden", cursor: "pointer", flexShrink: 0 }}
+          onClick={() => fileRef.current?.click()}
+        >
+          {asset.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={asset.imageUrl} alt={asset.label} style={{ width: 72, height: 72, objectFit: "cover", display: "block" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", padding: 6 }}>
+              <span style={{ fontSize: 10, color: "#9ca3af", textAlign: "center", lineHeight: 1.3 }}>{asset.label}</span>
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: "#374151", margin: 0 }}>{asset.label}</p>
+          {asset.imageUrl && (
+            <button type="button" onClick={handleClearImage} className="text-xs text-red-500 underline cursor-pointer bg-transparent border-0 p-0 text-left hover:text-red-700">
+              Görseli kaldır
+            </button>
+          )}
+          <button type="button" onClick={() => onDelete(asset.id)} className="text-xs text-red-400 underline cursor-pointer bg-transparent border-0 p-0 text-left hover:text-red-600">
+            Sil
+          </button>
+        </div>
       </div>
 
-      {asset.imageUrl && (
-        <button
-          type="button"
-          onClick={handleClearImage}
-          className="text-xs text-red-500 underline cursor-pointer bg-transparent border-0 p-1 hover:text-red-700"
-        >
-          Görseli kaldır
-        </button>
-      )}
-
-      <p style={{ fontSize: 11, color: "#4b5563", textAlign: "center", width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingInline: 4 }}>
-        {asset.label}
-      </p>
-
-      <button
-        type="button"
-        onClick={() => onDelete(asset.id)}
-        style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "50%", padding: 3, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-        title="Delete asset"
-      >
-        <Trash2 style={{ width: 12, height: 12, color: "#ef4444" }} />
-      </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <label style={{ fontSize: 10, color: "#6b7280" }}>Prompt açıklaması</label>
+          <button
+            type="button"
+            onClick={handleSaveDesc}
+            disabled={saving}
+            style={{ fontSize: 11, background: "#1f2937", color: "white", border: "none", borderRadius: 4, padding: "2px 8px", cursor: "pointer", opacity: saving ? 0.5 : 1 }}
+          >
+            {saving ? "..." : "Kaydet"}
+          </button>
+        </div>
+        <textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          placeholder="Prompta gidecek ayrıntılı açıklama..."
+          rows={3}
+          style={{ fontSize: 11, border: "1px solid #e5e7eb", borderRadius: 4, padding: "4px 6px", resize: "vertical", width: "100%" }}
+        />
+      </div>
     </div>
   );
 }
@@ -150,6 +168,7 @@ function AssetUploadRow({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState("");
+  const [promptDescription, setPromptDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
@@ -163,6 +182,7 @@ function AssetUploadRow({
       const file = fileRef.current?.files?.[0];
       if (file) formData.append("file", file);
       formData.append("label", label.trim());
+      if (promptDescription.trim()) formData.append("promptDescription", promptDescription.trim());
       formData.append("type", type);
       const res = await fetch(`/api/superadmin/brands/${brandId}/style-assets`, {
         method: "POST",
@@ -172,6 +192,7 @@ function AssetUploadRow({
       const { asset } = await res.json();
       onUploaded(asset);
       setLabel("");
+      setPromptDescription("");
       if (fileRef.current) fileRef.current.value = "";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -183,13 +204,23 @@ function AssetUploadRow({
   return (
     <form onSubmit={handleSubmit} className="flex items-end gap-2 mt-4 flex-wrap">
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-gray-400">Label</label>
+        <label className="text-xs text-gray-400">Label (görünen isim)</label>
         <input
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g. Soft Natural Light"
+          placeholder="e.g. Red Studio"
           className="border border-gray-300 rounded px-2 py-1 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-gray-300"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-400">Prompt açıklaması (prompta gider)</label>
+        <textarea
+          value={promptDescription}
+          onChange={(e) => setPromptDescription(e.target.value)}
+          placeholder="Ayrıntılı açıklama..."
+          rows={2}
+          className="border border-gray-300 rounded px-2 py-1 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -343,6 +374,9 @@ export default function BrandDetailPage() {
                       }
                       onImageClear={loadBrand}
                       onDelete={handleDeleteAsset}
+                      onPromptDescUpdate={(id, promptDescription) =>
+                        setBrand((b) => b ? { ...b, styleAssets: b.styleAssets.map((a) => a.id === id ? { ...a, promptDescription } : a) } : b)
+                      }
                     />
                   ))}
                 </div>

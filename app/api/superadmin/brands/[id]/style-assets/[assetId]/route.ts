@@ -48,10 +48,14 @@ export async function PATCH(
     return NextResponse.json({ asset: updated });
   }
 
+  const updateData: Record<string, unknown> = {};
+  if (body.sendToPrompt !== undefined) updateData.sendToPrompt = body.sendToPrompt;
+  if (body.promptDescription !== undefined) updateData.promptDescription = body.promptDescription || null;
+
   const updated = await prisma.styleAsset.update({
     where: { id: assetId },
-    data: { sendToPrompt: body.sendToPrompt },
-    select: { id: true, sendToPrompt: true },
+    data: updateData,
+    select: { id: true, sendToPrompt: true, promptDescription: true },
   });
 
   return NextResponse.json({ asset: updated });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Step1Upload from "@/components/tryon-wizard/Step1Upload";
+import Step1Upload, { type GarmentImage } from "@/components/tryon-wizard/Step1Upload";
 import Step2Model from "@/components/tryon-wizard/Step2Model";
 import Step3Details from "@/components/tryon-wizard/Step3Details";
 import Step4Result from "@/components/tryon-wizard/Step4Result";
@@ -15,11 +15,11 @@ interface StyleAsset {
 
 interface WizardState {
   garmentMode: "separates" | "dress";
-  topGarmentUrls: string[];
-  bottomGarmentUrls: string[];
+  topGarmentImages: GarmentImage[];
+  bottomGarmentImages: GarmentImage[];
   topDescription: string;
   bottomDescription: string;
-  dressUrls: string[];
+  dressImages: GarmentImage[];
   dressDescription: string;
   selectedModelId: string | null;
   productDetails: string;
@@ -36,11 +36,11 @@ export default function TryOnPage() {
   const [submitting, setSubmitting] = useState(false);
   const [state, setState] = useState<WizardState>({
     garmentMode: "separates",
-    topGarmentUrls: [],
-    bottomGarmentUrls: [],
+    topGarmentImages: [],
+    bottomGarmentImages: [],
     topDescription: "",
     bottomDescription: "",
-    dressUrls: [],
+    dressImages: [],
     dressDescription: "",
     selectedModelId: null,
     productDetails: "",
@@ -69,11 +69,11 @@ export default function TryOnPage() {
         body: JSON.stringify({
           modelId: state.selectedModelId,
           garmentMode: state.garmentMode,
-          topGarmentUrls: state.topGarmentUrls,
-          bottomGarmentUrls: state.bottomGarmentUrls,
+          topGarmentImages: state.topGarmentImages,
+          bottomGarmentImages: state.bottomGarmentImages,
           topDescription: state.topDescription,
           bottomDescription: state.bottomDescription,
-          dressUrls: state.dressUrls,
+          dressImages: state.dressImages,
           dressDescription: state.dressDescription,
           productDetails: state.productDetails,
           selectedStyleAssets: selectedAssetIds,
@@ -98,11 +98,11 @@ export default function TryOnPage() {
   function handleRetry() {
     setState({
       garmentMode: "separates",
-      topGarmentUrls: [],
-      bottomGarmentUrls: [],
+      topGarmentImages: [],
+      bottomGarmentImages: [],
       topDescription: "",
       bottomDescription: "",
-      dressUrls: [],
+      dressImages: [],
       dressDescription: "",
       selectedModelId: null,
       productDetails: "",
@@ -160,18 +160,18 @@ export default function TryOnPage() {
         {step === 1 && (
           <Step1Upload
             garmentMode={state.garmentMode}
-            topGarmentUrls={state.topGarmentUrls}
-            bottomGarmentUrls={state.bottomGarmentUrls}
+            topGarmentImages={state.topGarmentImages}
+            bottomGarmentImages={state.bottomGarmentImages}
             topDescription={state.topDescription}
             bottomDescription={state.bottomDescription}
-            dressUrls={state.dressUrls}
+            dressImages={state.dressImages}
             dressDescription={state.dressDescription}
             onGarmentModeChange={(mode) => update({ garmentMode: mode })}
-            onTopChange={(urls) => update({ topGarmentUrls: urls })}
-            onBottomChange={(urls) => update({ bottomGarmentUrls: urls })}
+            onTopChange={(images) => update({ topGarmentImages: images })}
+            onBottomChange={(images) => update({ bottomGarmentImages: images })}
             onTopDescriptionChange={(val) => update({ topDescription: val })}
             onBottomDescriptionChange={(val) => update({ bottomDescription: val })}
-            onDressChange={(urls) => update({ dressUrls: urls })}
+            onDressChange={(images) => update({ dressImages: images })}
             onDressDescriptionChange={(val) => update({ dressDescription: val })}
             onNext={() => setStep(2)}
           />

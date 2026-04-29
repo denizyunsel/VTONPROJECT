@@ -17,6 +17,7 @@ export interface DetailImage {
 export interface DetailItem {
   desc: string;
   images: DetailImage[];
+  views?: string[];
 }
 
 export interface GeneratePromptDetails {

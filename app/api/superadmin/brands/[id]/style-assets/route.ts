@@ -24,6 +24,7 @@ export async function POST(
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   const label = formData.get("label") as string | null;
+  const promptDescription = (formData.get("promptDescription") as string | null) || null;
   const type = formData.get("type") as string | null;
   const sendToPrompt = formData.get("sendToPrompt") !== "false";
 
@@ -38,8 +39,8 @@ export async function POST(
   const imageUrl = file ? await fal.storage.upload(file) : "";
 
   const asset = await prisma.styleAsset.create({
-    data: { brandId, type: type as StyleAssetType, imageUrl, label, sendToPrompt },
-    select: { id: true, label: true, imageUrl: true, type: true, sendToPrompt: true },
+    data: { brandId, type: type as StyleAssetType, imageUrl, label, promptDescription, sendToPrompt },
+    select: { id: true, label: true, promptDescription: true, imageUrl: true, type: true, sendToPrompt: true },
   });
 
   return NextResponse.json({ asset }, { status: 201 });

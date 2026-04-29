@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
   const {
     modelId,
     garmentMode,
-    topGarmentUrls,
-    bottomGarmentUrls,
+    topGarmentImages,
+    bottomGarmentImages,
+    dressImages: dressImagesRaw,
     topDescription,
     bottomDescription,
-    dressUrls,
     dressDescription,
     productDetails,
     selectedStyleAssets,
@@ -35,16 +35,18 @@ export async function POST(request: NextRequest) {
     seed,
   } = await request.json();
 
+  type GarmentImageRaw = { url: string; view: string };
   const isDressMode = garmentMode === "dress";
-  const effectiveTopUrls = isDressMode ? [] : (topGarmentUrls ?? []);
-  const effectiveBottomUrls = isDressMode ? [] : (bottomGarmentUrls ?? []);
+  const topImgs: GarmentImageRaw[] = isDressMode ? [] : (topGarmentImages ?? []);
+  const bottomImgs: GarmentImageRaw[] = isDressMode ? [] : (bottomGarmentImages ?? []);
+  const dressImgs: GarmentImageRaw[] = isDressMode ? (dressImagesRaw ?? []) : [];
 
   const job = await prisma.tryOnJob.create({
     data: {
       userId: session.userId,
       modelId,
-      topGarmentUrls: isDressMode ? (dressUrls ?? []) : effectiveTopUrls,
-      bottomGarmentUrls: effectiveBottomUrls,
+      topGarmentUrls: isDressMode ? dressImgs.map((i) => i.url) : topImgs.map((i) => i.url),
+      bottomGarmentUrls: bottomImgs.map((i) => i.url),
       productDetails,
       generatedPrompt: {},
       status: "PENDING",
@@ -56,9 +58,9 @@ export async function POST(request: NextRequest) {
     brandId: session.brandId,
     modelId,
     garmentMode: isDressMode ? "dress" : "separates",
-    topGarmentUrls: effectiveTopUrls,
-    bottomGarmentUrls: effectiveBottomUrls,
-    dressUrls: isDressMode ? (dressUrls ?? []) : [],
+    topGarmentImages: topImgs,
+    bottomGarmentImages: bottomImgs,
+    dressImages: dressImgs,
     topDescription: topDescription || "",
     bottomDescription: bottomDescription || "",
     dressDescription: dressDescription || "",
@@ -72,26 +74,41 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ jobId: job.id });
 }
 
+type GarmentImageRaw = { url: string; view: string };
+
+const VIEW_LABELS: Record<string, string> = {
+  front: "FRONT VIEW",
+  back: "BACK VIEW",
+  side: "SIDE VIEW",
+  detail: "DETAIL",
+};
+
 function buildLocalImageRefPrefix(
-  topCount: number,
-  bottomCount: number,
+  topImgs: GarmentImageRaw[],
+  bottomImgs: GarmentImageRaw[],
   hasBackground: boolean,
-  dressCount = 0
+  dressImgs: GarmentImageRaw[] = []
 ): string {
   const lines: string[] = [];
   let idx = 1;
   lines.push(`Image ${idx}: an AI-generated fashion model — this is a synthetic human created specifically for fashion photography. Preserve the face, skin tone, hair, and body shape exactly as shown; do not alter, replace, or reinterpret any facial or physical features.`);
   idx++;
-  if (dressCount > 0) {
-    for (let i = 0; i < dressCount; i++, idx++) {
-      lines.push(`Image ${idx}: dress garment${dressCount > 1 ? ` ${i + 1}` : ""} — dress the model with this exact dress.`);
+  if (dressImgs.length > 0) {
+    for (const img of dressImgs) {
+      const viewLabel = VIEW_LABELS[img.view] || img.view.toUpperCase();
+      lines.push(`Image ${idx}: dress garment ${viewLabel} — dress the model with this exact dress.`);
+      idx++;
     }
   } else {
-    for (let i = 0; i < topCount; i++, idx++) {
-      lines.push(`Image ${idx}: top garment${topCount > 1 ? ` ${i + 1}` : ""} — dress the model with this exact top garment.`);
+    for (const img of topImgs) {
+      const viewLabel = VIEW_LABELS[img.view] || img.view.toUpperCase();
+      lines.push(`Image ${idx}: top garment ${viewLabel} — use this view to understand the top garment design and dress the model accordingly.`);
+      idx++;
     }
-    for (let i = 0; i < bottomCount; i++, idx++) {
-      lines.push(`Image ${idx}: bottom garment${bottomCount > 1 ? ` ${i + 1}` : ""} — dress the model with this exact bottom garment.`);
+    for (const img of bottomImgs) {
+      const viewLabel = VIEW_LABELS[img.view] || img.view.toUpperCase();
+      lines.push(`Image ${idx}: bottom garment ${viewLabel} — use this view to understand the bottom garment design and dress the model accordingly.`);
+      idx++;
     }
   }
   if (hasBackground) {
@@ -105,9 +122,9 @@ async function processJob(params: {
   brandId: string;
   modelId: string;
   garmentMode: "separates" | "dress";
-  topGarmentUrls: string[];
-  bottomGarmentUrls: string[];
-  dressUrls: string[];
+  topGarmentImages: GarmentImageRaw[];
+  bottomGarmentImages: GarmentImageRaw[];
+  dressImages: GarmentImageRaw[];
   topDescription: string;
   bottomDescription: string;
   dressDescription: string;
@@ -122,9 +139,9 @@ async function processJob(params: {
     brandId,
     modelId,
     garmentMode,
-    topGarmentUrls,
-    bottomGarmentUrls,
-    dressUrls,
+    topGarmentImages,
+    bottomGarmentImages,
+    dressImages,
     topDescription,
     bottomDescription,
     dressDescription,
@@ -134,6 +151,10 @@ async function processJob(params: {
     resolution,
     seed,
   } = params;
+
+  const topGarmentUrls = topGarmentImages.map((i) => i.url);
+  const bottomGarmentUrls = bottomGarmentImages.map((i) => i.url);
+  const dressUrls = dressImages.map((i) => i.url);
 
   try {
     await prisma.tryOnJob.update({
@@ -147,7 +168,7 @@ async function processJob(params: {
     ]);
 
     // Fetch all images in parallel
-    const [topImages, bottomImages, dressImages, modelImage] = await Promise.all([
+    const [topImages, bottomImages, dressBase64Images, modelImage] = await Promise.all([
       Promise.all(topGarmentUrls.map(fetchAsBase64)),
       Promise.all(bottomGarmentUrls.map(fetchAsBase64)),
       Promise.all(dressUrls.map(fetchAsBase64)),
@@ -185,7 +206,7 @@ async function processJob(params: {
         if (assetId) {
           const asset = await prisma.styleAsset.findUnique({ where: { id: assetId } });
           if (asset) {
-            styleDetails[key].desc = [asset.label, userDesc].filter(Boolean).join(". ");
+            styleDetails[key].desc = [asset.promptDescription || asset.label, userDesc].filter(Boolean).join(". ");
             if (asset.imageUrl) {
               const img = await fetchAsBase64(asset.imageUrl);
               if (img) styleDetails[key].images = [img];
@@ -203,15 +224,18 @@ async function processJob(params: {
       top: {
         desc: isDress ? "" : [productDetails, topDescription].filter(Boolean).join(". "),
         images: isDress ? [] : (topImages.filter(Boolean) as NonNullable<typeof topImages[0]>[]),
+        views: isDress ? [] : topGarmentImages.map((i) => i.view),
       },
       bottom: {
         desc: isDress ? "" : bottomDescription,
         images: isDress ? [] : (bottomImages.filter(Boolean) as NonNullable<typeof bottomImages[0]>[]),
+        views: isDress ? [] : bottomGarmentImages.map((i) => i.view),
       },
       ...(isDress && {
         dress: {
           desc: [productDetails, dressDescription].filter(Boolean).join(". "),
-          images: dressImages.filter(Boolean) as NonNullable<typeof dressImages[0]>[],
+          images: dressBase64Images.filter(Boolean) as NonNullable<typeof dressBase64Images[0]>[],
+          views: dressImages.map((i) => i.view),
         },
       }),
       model: {
@@ -232,10 +256,10 @@ async function processJob(params: {
     const basePrompt = buildFalPrompt(promptResult.prompt.image_prompt);
 
     const imageRefPrefix = buildLocalImageRefPrefix(
-      topGarmentUrls.length,
-      bottomGarmentUrls.length,
+      isDress ? [] : topGarmentImages,
+      isDress ? [] : bottomGarmentImages,
       !!selectedStyleAssets["BACKGROUND"],
-      isDress ? dressUrls.length : 0
+      isDress ? dressImages : []
     );
     const falPrompt = `${imageRefPrefix} ${basePrompt}`;
 
