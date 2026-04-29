@@ -78,9 +78,11 @@ type GarmentImageRaw = { url: string; view: string };
 
 const VIEW_LABELS: Record<string, string> = {
   front: "FRONT VIEW",
+  front_detail: "FRONT DETAIL",
   back: "BACK VIEW",
+  back_detail: "BACK DETAIL",
   side: "SIDE VIEW",
-  detail: "DETAIL",
+  side_detail: "SIDE DETAIL",
 };
 
 function buildLocalImageRefPrefix(

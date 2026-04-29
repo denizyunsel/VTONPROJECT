@@ -7,7 +7,14 @@ import { X } from "lucide-react";
 
 type GarmentMode = "separates" | "dress";
 
-export type GarmentView = "front" | "back" | "side" | "detail";
+export type GarmentView =
+  | "front"
+  | "front_detail"
+  | "back"
+  | "back_detail"
+  | "side"
+  | "side_detail";
+
 export interface GarmentImage {
   url: string;
   view: GarmentView;
@@ -15,12 +22,19 @@ export interface GarmentImage {
 
 const VIEW_LABELS: Record<GarmentView, string> = {
   front: "Ön",
+  front_detail: "Ön Detay",
   back: "Arka",
+  back_detail: "Arka Detay",
   side: "Yan",
-  detail: "Detay",
+  side_detail: "Yan Detay",
 };
 
-const VIEWS: GarmentView[] = ["front", "back", "side", "detail"];
+// [main view, detail view] pairs
+const VIEW_PAIRS: [GarmentView, GarmentView][] = [
+  ["front", "front_detail"],
+  ["back", "back_detail"],
+  ["side", "side_detail"],
+];
 
 interface Props {
   garmentMode: GarmentMode;
@@ -145,16 +159,24 @@ function GarmentViewSection({
   return (
     <div className="space-y-3">
       <p className="font-medium text-sm">{label}</p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {VIEWS.map((view) => (
-          <ViewUploadZone
-            key={view}
-            view={view}
-            images={images.filter((i) => i.view === view)}
-            allImages={images}
-            onAllImages={onImages}
-            uploadType={uploadType}
-          />
+      <div className="space-y-2">
+        {VIEW_PAIRS.map(([mainView, detailView]) => (
+          <div key={mainView} className="grid grid-cols-2 gap-3">
+            <ViewUploadZone
+              view={mainView}
+              images={images.filter((i) => i.view === mainView)}
+              allImages={images}
+              onAllImages={onImages}
+              uploadType={uploadType}
+            />
+            <ViewUploadZone
+              view={detailView}
+              images={images.filter((i) => i.view === detailView)}
+              allImages={images}
+              onAllImages={onImages}
+              uploadType={uploadType}
+            />
+          </div>
         ))}
       </div>
       <textarea
@@ -198,7 +220,7 @@ export default function Step1Upload({
       <div>
         <h2 className="text-xl font-semibold mb-1">Upload Garments</h2>
         <p className="text-sm text-gray-500">
-          Her görüş açısı için ayrı görsel ekleyebilirsiniz.
+          Her görüş açısı için ana görsel ve detay görseli ekleyebilirsiniz.
         </p>
       </div>
 
