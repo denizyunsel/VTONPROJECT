@@ -83,50 +83,93 @@ async function attemptGeneratePrompt(
   return parsePromptBody(body, params.brandSlug);
 }
 
-// The prompt generator may return either plain JSON or an SSE stream.
-// This function handles both formats and accumulates text from streaming responses.
+// The prompt generator may return plain JSON or an SSE stream.
+// Logs the raw response so the format is visible in server console.
 function parsePromptBody(body: string, brandSlug: string): GeneratePromptResult {
+  console.log("[prompt-generator] raw response start:", JSON.stringify(body.slice(0, 400)));
+
   const trimmed = body.trimStart();
 
-  // Plain JSON response
-  if (!trimmed.startsWith("data:")) {
+  // Plain JSON (no SSE prefix)
+  if (!trimmed.startsWith("data:") && !/^\d+:/.test(trimmed)) {
     const result = tryParsePromptJson(trimmed, brandSlug);
     if (result) return result;
-    throw new Error(`Unexpected non-SSE response: ${body.slice(0, 200)}`);
+    throw new Error(`Non-SSE response, no image_prompt found: ${body.slice(0, 200)}`);
   }
 
-  // SSE stream: accumulate text deltas from events
   let accumulated = "";
-  for (const line of body.split("\n")) {
-    if (!line.startsWith("data:")) continue;
-    const payload = line.slice(5).trim();
-    if (!payload || payload === "[DONE]") continue;
+  let lastResult: GeneratePromptResult | null = null;
 
-    try {
-      const event = JSON.parse(payload) as Record<string, unknown>;
-      // Anthropic streaming text delta
-      const delta = event.delta as Record<string, unknown> | undefined;
-      if (delta?.type === "text_delta" && typeof delta.text === "string") {
-        accumulated += delta.text;
-        continue;
+  for (const line of body.split("\n")) {
+    const t = line.trim();
+
+    // Standard SSE: "data: <payload>"
+    if (t.startsWith("data:")) {
+      const payload = t.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+
+      try {
+        const event = JSON.parse(payload) as Record<string, unknown>;
+
+        // Anthropic streaming text delta
+        const delta = event.delta as Record<string, unknown> | undefined;
+        if (delta?.type === "text_delta" && typeof delta.text === "string") {
+          accumulated += delta.text;
+          continue;
+        }
+
+        // Try the event itself and every nested object for image_prompt
+        const found = searchForImagePrompt(event, brandSlug);
+        if (found) lastResult = found;
+
+        // Also collect any string value that contains image_prompt JSON
+        for (const val of Object.values(event)) {
+          if (typeof val === "string" && val.includes("image_prompt")) {
+            const r = tryParsePromptJson(val, brandSlug);
+            if (r) lastResult = r;
+          }
+        }
+      } catch {
+        // Non-JSON SSE data — treat as raw text chunk
+        accumulated += payload;
       }
-      // Direct result embedded in SSE event
-      if (event.image_prompt || (event.prompt as Record<string, unknown> | undefined)?.image_prompt) {
-        const r = tryParsePromptJson(JSON.stringify(event), brandSlug);
-        if (r) return r;
+      continue;
+    }
+
+    // Vercel AI SDK stream format: "0:\"text chunk\""
+    if (/^\d+:/.test(t)) {
+      const payload = t.slice(t.indexOf(":") + 1).trim();
+      try {
+        const val = JSON.parse(payload);
+        if (typeof val === "string") accumulated += val;
+      } catch {
+        accumulated += payload;
       }
-    } catch {
-      // Non-JSON payload — treat as a raw text chunk
-      accumulated += payload;
     }
   }
 
+  if (lastResult) return lastResult;
+
   if (accumulated) {
+    console.log("[prompt-generator] accumulated text start:", JSON.stringify(accumulated.slice(0, 200)));
     const result = tryParsePromptJson(accumulated, brandSlug);
     if (result) return result;
   }
 
-  throw new Error("Could not extract image_prompt from prompt generator response");
+  throw new Error(`Could not extract image_prompt. Response: ${body.slice(0, 300)}`);
+}
+
+// Searches obj and its immediate children for a shape containing image_prompt.
+function searchForImagePrompt(obj: Record<string, unknown>, brandSlug: string): GeneratePromptResult | null {
+  const direct = tryParsePromptJson(JSON.stringify(obj), brandSlug);
+  if (direct) return direct;
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const r = tryParsePromptJson(JSON.stringify(val), brandSlug);
+      if (r) return r;
+    }
+  }
+  return null;
 }
 
 function tryParsePromptJson(text: string, brandSlug: string): GeneratePromptResult | null {
